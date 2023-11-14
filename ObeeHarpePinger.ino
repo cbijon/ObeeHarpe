@@ -43,6 +43,7 @@ Adafruit_INA219 ina219;
 typedef struct struct_wifi_tx {
   int id;
   long counter;
+  long counted;
   int frags;
   float shuntvoltage;
   float busvoltage;
@@ -246,6 +247,7 @@ void loop() {
       WIFI_TX.id = BoardID;
       if ((power_mW_Max - power_mW_Min) > POWER_THRESHOLD) {
         WIFI_TX.frags = 1;
+        Serial.printf("HORNET FRAGGED !\n");
       } else {
         WIFI_TX.frags = 0;
       }
