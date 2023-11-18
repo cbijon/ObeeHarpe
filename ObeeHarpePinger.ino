@@ -1,39 +1,47 @@
+/**
+This device is used to monitor electrified harps that protect beehives from Asian hornets.
+The harps communicate over ESPnow WiFi to the central unit, and then the data is sent to a private TTN over LoRaWAN.
+
+WARNING, you have 2000 Volts on it  !!!
+
+2023 - Charles BIJON --- bijon.charles@gmail.com
+**/
+
 // Import necessary libraries
-#include <ESP8266WiFi.h>   // For ESP8266 WiFi connectivity
-#include <espnow.h>        // For ESP-NOW communication
-#include "Wire.h"          // For I2C communication
-#include "Adafruit_INA219.h" // For interfacing with INA219 sensor
-#include <ESP8266mDNS.h>   // For mDNS (Over-The-Air) updates
-#include <WiFiUdp.h>       // For UDP communication
-#include <ArduinoOTA.h>    // For Over-The-Air (OTA) updates
-#include <RemoteDebug.h>   // For remote debugging
+#include <ESP8266WiFi.h>      // For ESP8266 WiFi connectivity
+#include <espnow.h>           // For ESP-NOW communication
+#include "Wire.h"             // For I2C communication
+#include "Adafruit_INA219.h"  // For interfacing with INA219 sensor
+#include <ESP8266mDNS.h>      // For mDNS (Over-The-Air) updates
+#include <WiFiUdp.h>          // For UDP communication
+#include <ArduinoOTA.h>       // For Over-The-Air (OTA) updates
+#include <RemoteDebug.h>      // For remote debugging
 
 // Replace with the appropriate MAC address depending on AP or STA mode
-uint8_t broadcastAddress1[] = { ..., ..., ...., ...., 0x67, 0x51 }; // AP MODE : SETUP THERE THE MAC OF YOUR CENTRALE
-// uint8_t broadcastAddress1[] = { ..., ..., ...., ...., 0x67, 0x50 }; // STA MODE
+uint8_t broadcastAddress1[] = { ...., ...., ...., ...., 0x67, 0x51 };  // AP MODE
+// uint8_t broadcastAddress1[] = { ...., ...., ...., ...., 0x67, 0x50 }; // STA MODE
 
 // Unique device identifier
-const int BoardID = 5;
+const int BoardID = X;  // PLEASE SET IT FIRST
 const int realId = BoardID + 1;
 
 // Hostname for better identification
 const char* HOSTNAME = "Harpe-" + realId;
 
 unsigned long lastTime = 0;
-unsigned long timerDelay = 2000; // Timer for sending readings
+unsigned long timerDelay = 2000;  // Timer for sending readings
 
 // Wi-Fi credentials
-const char* ssid = "XXXXXXXXXX";
-const char* password = "ZZZZZZZ";
-const char* ATO_PASSWORD = "admin"; // Password for OTA updates
+const char* ssid = "XXXXXX";  // PLEASE SET IT FIRST
+const char* OTA_PASSWORD = "XXXXXX";       // PLEASE SET IT FIRST : Password for OTA updates
 
 bool OTAupdate = false;
-unsigned long timeoutLength = 30000; // Time to catch the AP at boot
+unsigned long timeoutLength = 30000;  // Time to catch the AP at boot
 
 // Threshold for power activity detection
-const float POWER_THRESHOLD = 200.0;
+const float POWER_THRESHOLD = 200.0;  // PLEASE SET IT FIRST
 
-RemoteDebug Debug; // For remote debugging
+RemoteDebug Debug;  // For remote debugging
 
 unsigned long previousMillis;
 
@@ -51,6 +59,7 @@ typedef struct struct_wifi_tx {
   float loadvoltage;
   float power_mW;
   float delta_power_mW;
+  char* mac;
 } struct_wifi_tx;
 
 struct_wifi_tx WIFI_TX;
@@ -91,13 +100,13 @@ void OnDataSent(uint8_t* mac_addr, uint8_t sendStatus) {
 
 void initOTA() {
   ArduinoOTA.setHostname(HOSTNAME);
-  ArduinoOTA.setPassword(ATO_PASSWORD);
+  ArduinoOTA.setPassword(OTA_PASSWORD);
 
   ArduinoOTA.onStart([]() {
     String type;
     if (ArduinoOTA.getCommand() == U_FLASH) {
       type = "sketch";
-    } else { // U_FS
+    } else {  // U_FS
       type = "filesystem";
     }
     Serial.println("Start updating " + type);
@@ -129,8 +138,8 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Booting");
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  
+  WiFi.begin(ssid, OTA_PASSWORD);
+
   if (WiFi.waitForConnectResult(timeoutLength) == WL_CONNECTED) {
     Debug.begin("ESP8266");
     initOTA();
@@ -181,7 +190,7 @@ void resetValue() {
   current_mA_Min = 5000;
   loadvoltage_Min = 10;
   power_mW_Min = 500000;
-  
+
   shuntvoltage_Max = 0;
   busvoltage_Max = 0;
   current_mA_Max = 0;
@@ -194,22 +203,22 @@ void getMinMAXValue() {
     shuntvoltage_Min = shuntvoltage;
   if (shuntvoltage > shuntvoltage_Max)
     shuntvoltage_Max = shuntvoltage;
-  
+
   if (busvoltage < busvoltage_Min)
     busvoltage_Min = busvoltage;
   if (busvoltage > busvoltage_Max)
     busvoltage_Max = busvoltage;
-  
+
   if (current_mA < current_mA_Min)
     current_mA_Min = current_mA;
   if (current_mA > current_mA_Max)
     current_mA_Max = current_mA;
-  
+
   if (loadvoltage < loadvoltage_Min)
     loadvoltage_Min = loadvoltage;
   if (loadvoltage > loadvoltage_Max)
     loadvoltage_Max = loadvoltage;
-  
+
   if (power_mW < power_mW_Min)
     power_mW_Min = power_mW;
   if (power_mW > power_mW_Max)
@@ -257,10 +266,11 @@ void loop() {
       WIFI_TX.current_mA = current_mA;
       WIFI_TX.power_mW = power_mW;
       WIFI_TX.delta_power_mW = power_mW_Max - power_mW_Min;
-      
+
+
       showValue();
       showDelta();
-      
+
       esp_now_send(0, (uint8_t*)&WIFI_TX, sizeof(WIFI_TX));
       resetValue();
       lastTime = millis();
