@@ -59,7 +59,7 @@ typedef struct struct_wifi_tx {
   float loadvoltage;
   float power_mW;
   float delta_power_mW;
-  char* mac;
+  String mac;
 } struct_wifi_tx;
 
 struct_wifi_tx WIFI_TX;
@@ -93,6 +93,7 @@ void OnDataSent(uint8_t* mac_addr, uint8_t sendStatus) {
   Serial.print(" send status: ");
   if (sendStatus == 0) {
     Serial.println("Delivery success");
+    blinkLed(LED_DELAY_COM);
   } else {
     Serial.println("Delivery fail");
   }
@@ -134,10 +135,18 @@ void initOTA() {
   ArduinoOTA.begin();
 }
 
+void blinkLed(int tempwait) {
+  digitalWrite(LED_BUILTIN, LOW);   // Turn the LED on (Note that LOW is the voltage level
+  delay(tempwait);                  // Wait for a second
+  digitalWrite(LED_BUILTIN, HIGH);  // Turn the LED off by making the voltage HIGH
+}
+
 void setup() {
   Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
   Serial.println("Booting");
   WiFi.mode(WIFI_STA);
+
   WiFi.begin(ssid, OTA_PASSWORD);
 
   if (WiFi.waitForConnectResult(timeoutLength) == WL_CONNECTED) {
@@ -149,6 +158,8 @@ void setup() {
     OTAupdate = true;
   } else {
     WiFi.mode(WIFI_STA);
+    Serial.print("Adresse MAC de l'ESP8266 : ");
+    Serial.println(WiFi.macAddress());
     WiFi.disconnect();
     if (esp_now_init() != 0) {
       Serial.println("Error initializing ESP-NOW");
@@ -240,6 +251,7 @@ void showDelta() {
 void loop() {
   if (OTAupdate) {
     ArduinoOTA.handle();
+    digitalWrite(LED_BUILTIN, LOW);
     if (millis() - previousMillis >= 500) {
       previousMillis = millis();
       Serial.println(F("Code has been updated"));
@@ -256,6 +268,7 @@ void loop() {
       WIFI_TX.id = BoardID;
       if ((power_mW_Max - power_mW_Min) > POWER_THRESHOLD) {
         WIFI_TX.frags = 1;
+        blinkLed(LED_DELAY_FRAGGED);
         Serial.printf("HORNET FRAGGED !\n");
       } else {
         WIFI_TX.frags = 0;
@@ -266,7 +279,7 @@ void loop() {
       WIFI_TX.current_mA = current_mA;
       WIFI_TX.power_mW = power_mW;
       WIFI_TX.delta_power_mW = power_mW_Max - power_mW_Min;
-
+      WIFI_TX.mac = WiFi.macAddress();
 
       showValue();
       showDelta();
@@ -277,3 +290,4 @@ void loop() {
     }
   }
 }
+
